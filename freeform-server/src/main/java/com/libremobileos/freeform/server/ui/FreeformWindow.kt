@@ -60,6 +60,8 @@ class FreeformWindow(
     
     private lateinit var appPackageName: String
     private var appIcon: Drawable? = null
+    private var isInitialized = false
+    private var preferredDisplayModeId = 0
 
     private val rotationWatcher = object : IRotationWatcher.Stub() {
         override fun onRotationChanged(rotation: Int) {
@@ -247,8 +249,10 @@ class FreeformWindow(
         measureSize()
         measureScale()
         context.display.getDisplayInfo(defaultDisplayInfo)
-        val maxRefreshRate = context.display.supportedModes
-            .maxOfOrNull { it.refreshRate } ?: defaultDisplayInfo.refreshRate
+        val maxMode = context.display.supportedModes
+            .maxByOrNull { it.refreshRate }
+        val maxRefreshRate = maxMode?.refreshRate ?: defaultDisplayInfo.refreshRate
+        preferredDisplayModeId = maxMode?.modeId ?: 0
         freeformConfig.apply {
             refreshRate = maxRefreshRate
             presentationDeadlineNanos = if (maxRefreshRate > 0f) {
@@ -345,6 +349,10 @@ class FreeformWindow(
                     WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
             format = PixelFormat.RGBA_8888
             windowAnimations = android.R.style.Animation_Dialog
+            preferredRefreshRate = freeformConfig.refreshRate
+            if (this@FreeformWindow.preferredDisplayModeId != 0) {
+                preferredDisplayModeId = this@FreeformWindow.preferredDisplayModeId
+            }
         }
         runCatching {
             windowManager.addView(freeformLayout, windowParams)
